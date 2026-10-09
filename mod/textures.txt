@@ -1,0 +1,13 @@
+Texture "DIABWALL", 512, 512
+{
+	XScale 2.0
+	YScale 2.0
+	Patch "DWALLHI", 0, 0
+}
+
+Flat "DIABFLR", 512, 512
+{
+	XScale 2.0
+	YScale 2.0
+	Patch "DFLORHI", 0, 0
+}

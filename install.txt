@@ -1,0 +1,1 @@
+Copy mod.pk3 next to GZDoom and run it with freedoom2.wad (or any Doom 2 IWAD): gzdoom -iwad freedoom2.wad -file mod.pk3. You start on MAP01 with a firebolt hand, a red health orb and a blue mana orb.

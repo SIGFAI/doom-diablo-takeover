@@ -1,0 +1,548 @@
+version "4.14"
+
+// ---------------------------------------------------------------- resources
+
+class GoldCoins : Inventory { Default { Inventory.MaxAmount 9999999; } }
+class DiaLevel : Inventory { Default { Inventory.MaxAmount 99; } }
+class DiaXP : Inventory { Default { Inventory.MaxAmount 99999999; } }
+class DiaLooted : Inventory { Default { Inventory.MaxAmount 1; } }
+class DiaRisen : Inventory { Default { Inventory.MaxAmount 1; } }
+
+class Mana : Ammo
+{
+	Default
+	{
+		Inventory.MaxAmount 100;
+		Ammo.BackpackAmount 0;
+		Ammo.BackpackMaxAmount 100;
+	}
+}
+
+// ---------------------------------------------------------------- loot
+
+class GoldPile : CustomInventory
+{
+	Default
+	{
+		Radius 14; Height 10; Scale 0.6;
+		+INVENTORY.ALWAYSPICKUP;
+		Inventory.PickupSound "gold/get";
+		Inventory.PickupMessage "";
+	}
+	States
+	{
+	Spawn:
+		GOLD A 4 Bright { A_SpawnParticle(0xFFD030, SPF_FULLBRIGHT, 12, 3, 0, frandom(-6,6), frandom(-6,6), 4, 0, 0, 1, 0, 0, 0.0, 1.0, -0.08); }
+		Loop;
+	Pickup:
+		TNT1 A 0 { A_GiveInventory("GoldCoins", random(9, 28) * (1 + CountInv("DiaLevel") / 2)); }
+		Stop;
+	}
+}
+
+class HealthGlobe : CustomInventory
+{
+	Default
+	{
+		Radius 14; Height 18; Scale 0.8;
+		+INVENTORY.ALWAYSPICKUP;
+		Inventory.PickupSound "orb/get";
+		Inventory.PickupMessage "";
+	}
+	States
+	{
+	Spawn:
+		HORB A 3 Bright { A_SpawnParticle(0xFF2020, SPF_FULLBRIGHT, 14, 3, 0, frandom(-5,5), frandom(-5,5), 12, 0, 0, 1.2, 0, 0, 0.0, 1.0, -0.07); }
+		Loop;
+	Pickup:
+		TNT1 A 0 { GiveBody(30); A_SpawnParticle(0xFF4040, SPF_FULLBRIGHT, 20, 6, 0, 0, 0, 20, 0, 0, 3); }
+		Stop;
+	}
+}
+
+class ManaGlobe : CustomInventory
+{
+	Default
+	{
+		Radius 14; Height 18; Scale 0.8;
+		+INVENTORY.ALWAYSPICKUP;
+		Inventory.PickupSound "orb/get";
+		Inventory.PickupMessage "";
+	}
+	States
+	{
+	Spawn:
+		MORB A 3 Bright { A_SpawnParticle(0x3050FF, SPF_FULLBRIGHT, 14, 3, 0, frandom(-5,5), frandom(-5,5), 12, 0, 0, 1.2, 0, 0, 0.0, 1.0, -0.07); }
+		Loop;
+	Pickup:
+		TNT1 A 0 { A_GiveInventory("Mana", 40); }
+		Stop;
+	}
+}
+
+// ---------------------------------------------------------------- burning
+
+class BurnFX : Inventory
+{
+	int ticks;
+	Default { Inventory.MaxAmount 1; +INVENTORY.UNDROPPABLE; }
+	override void DoEffect()
+	{
+		if (!owner || owner.health <= 0) { Destroy(); return; }
+		ticks++;
+		if (ticks % 3 == 0)
+		{
+			double r = owner.radius * 0.6;
+			for (int i = 0; i < 3; i++)
+				owner.A_SpawnParticle(i == 0 ? 0xFFE060 : 0xFF6A10, SPF_FULLBRIGHT, 18, frandom(3, 6), 0,
+					frandom(-r, r), frandom(-r, r), frandom(0, owner.height), frandom(-0.4, 0.4), frandom(-0.4, 0.4), frandom(1, 2.2), 0, 0, 0.05, 1.0, -0.05);
+		}
+		if (ticks % 10 == 0) owner.DamageMobj(null, null, 4, 'Fire', DMG_NO_ARMOR);
+		if (ticks == 4) owner.A_StartSound("firebolt/burn", CHAN_BODY, 0, 0.7);
+		if (ticks >= 105) Destroy();
+	}
+}
+
+// ---------------------------------------------------------------- the Sorcerer's firebolt
+
+class Firebolt : Actor
+{
+	Default
+	{
+		Radius 10; Height 14; Speed 32; Damage 20;
+		Projectile; +RANDOMIZE; +FORCEXYBILLBOARD;
+		RenderStyle "Add"; Alpha 1.0; Scale 0.9;
+		SeeSound "firebolt/cast"; DeathSound "firebolt/boom";
+		Obituary "%o was roasted by %k's firebolt.";
+	}
+	States
+	{
+	Spawn:
+		FIRB A 1 Bright
+		{
+			for (int i = 0; i < 2; i++)
+				A_SpawnParticle(i ? 0xFFC040 : 0xFF5010, SPF_FULLBRIGHT, 20, frandom(3, 7), 0,
+					frandom(-3, 3), frandom(-3, 3), frandom(-3, 3), frandom(-0.5, 0.5), frandom(-0.5, 0.5), frandom(0.2, 1.2), 0, 0, 0.02, 1.0, -0.05);
+		}
+		Loop;
+	Death:
+		FIRB A 2 Bright
+		{
+			A_Explode(45, 110, XF_NOTMISSILE);
+			A_SetScale(1.6);
+			for (int i = 0; i < 34; i++)
+				A_SpawnParticle(random(0, 2) ? 0xFF7A18 : 0xFFE070, SPF_FULLBRIGHT, random(14, 30), frandom(3, 8), 0,
+					0, 0, 0, frandom(-5, 5), frandom(-5, 5), frandom(0, 6), 0, 0, -0.25, 1.0, -0.04);
+			let it = BlockThingsIterator.Create(self, 100);
+			while (it.Next())
+			{
+				let t = it.thing;
+				if (t && t.bShootable && t.bIsMonster && t.health > 0 && !t.CountInv("BurnFX")) t.GiveInventory("BurnFX", 1);
+			}
+		}
+		FIRB A 2 Bright A_SetScale(2.2);
+		FIRB A 2 Bright A_SetScale(2.6);
+		FIRB A 2 Bright { A_SetScale(2.9); A_FadeOut(0.25); }
+		Wait;
+	}
+}
+
+class FireStaff : DoomWeapon
+{
+	Default
+	{
+		Weapon.SlotNumber 2;
+		Weapon.SelectionOrder 1900;
+		Weapon.AmmoType1 "Mana";
+		Weapon.AmmoUse1 0;
+		Weapon.AmmoGive1 0;
+		+WEAPON.AMMO_OPTIONAL; +WEAPON.NOALERT;
+		Obituary "%o was roasted by %k.";
+		Tag "Firebolt";
+	}
+	States
+	{
+	Ready:
+		HAND A 1 A_WeaponReady;
+		Loop;
+	Deselect:
+		HAND A 1 A_Lower;
+		Loop;
+	Select:
+		HAND A 1 A_Raise;
+		Loop;
+	Fire:
+		HAND B 4 Bright
+		{
+			if (CountInv("Mana") >= 5)
+			{
+				TakeInventory("Mana", 5);
+				let p = SpawnPlayerMissile("Firebolt");
+				if (p) p.SetDamage(18 + 5 * CountInv("DiaLevel") + random(0, 6));
+				A_AlertMonsters();
+				A_GunFlash();
+			}
+			else A_StartSound("diablo/pain", CHAN_WEAPON, 0, 0.3);
+		}
+		HAND B 4 Bright;
+		HAND A 6;
+		HAND A 0 A_ReFire;
+		Goto Ready;
+	Flash:
+		TNT1 A 2 A_Light2;
+		TNT1 A 2 A_Light1;
+		TNT1 A 0 A_Light0;
+		Stop;
+	Spawn:
+		HAND A -1;
+		Stop;
+	}
+}
+
+// ---------------------------------------------------------------- monsters
+
+// Small, fast, cowardly: when a Fallen dies the others run away screaming.
+class Fallen : Actor replaces DoomImp
+{
+	Default
+	{
+		Health 60; Radius 18; Height 52; Mass 80; Speed 10; PainChance 200;
+		Monster; +FLOORCLIP; Scale 0.5;
+		SeeSound "fallen/sight"; ActiveSound "fallen/sight"; PainSound "diablo/pain"; DeathSound "fallen/die";
+		MeleeSound "fallen/atk";
+		Obituary "%o was clubbed by a Fallen One.";
+		Tag "Fallen One";
+	}
+	override void Die(Actor source, Actor inflictor, int dmgflags, Name MeansOfDeath)
+	{
+		super.Die(source, inflictor, dmgflags, MeansOfDeath);
+		let it = BlockThingsIterator.Create(self, 700);
+		while (it.Next())
+		{
+			let f = Fallen(it.thing);
+			if (f && f != self && f.health > 0) f.SetStateLabel("Scared");
+		}
+	}
+	States
+	{
+	Spawn:
+		FALN A 10 A_Look;
+		Loop;
+	See:
+		FALN AABB 4 A_Chase;
+		Loop;
+	Scared:
+		FALN A 0 { bFrightened = true; A_StartSound("fallen/sight", CHAN_VOICE); }
+		FALN AABB 3 A_Chase(null, null, CHF_NOPLAYACTIVE);
+		FALN AABB 3 A_Chase(null, null, CHF_NOPLAYACTIVE);
+		FALN AABB 3 A_Chase(null, null, CHF_NOPLAYACTIVE);
+		FALN AABB 3 A_Chase(null, null, CHF_NOPLAYACTIVE);
+		FALN AABB 3 A_Chase(null, null, CHF_NOPLAYACTIVE);
+		FALN AABB 3 A_Chase(null, null, CHF_NOPLAYACTIVE);
+		FALN AABB 3 A_Chase(null, null, CHF_NOPLAYACTIVE);
+		FALN A 0 { bFrightened = false; }
+		Goto See;
+	Melee:
+		FALN C 10 A_FaceTarget;
+		FALN C 6 A_CustomMeleeAttack(random(2, 6) * 3, "fallen/atk", "fallen/atk");
+		Goto See;
+	Pain:
+		FALN D 4;
+		FALN D 4 A_Pain;
+		Goto See;
+	Death:
+		FALN E 6 A_Scream;
+		FALN E 4 A_NoBlocking;
+		FALN F -1;
+		Stop;
+	}
+}
+
+// Rattles apart, and half the time gets back up once.
+class Skeleton : Actor replaces ZombieMan
+{
+	Default
+	{
+		Health 50; Radius 18; Height 54; Mass 100; Speed 7; PainChance 160;
+		Monster; +FLOORCLIP; +NOBLOOD; Scale 0.5;
+		SeeSound "skel/sight"; ActiveSound "skel/sight"; PainSound "diablo/pain"; DeathSound "skel/die";
+		Obituary "%o was cut down by a skeleton.";
+		Tag "Skeleton";
+	}
+	States
+	{
+	Spawn:
+		SKEL A 10 A_Look;
+		Loop;
+	See:
+		SKEL AABB 5 A_Chase;
+		Loop;
+	Melee:
+		SKEL C 10 A_FaceTarget;
+		SKEL C 6 A_CustomMeleeAttack(random(2, 7) * 3, "fallen/atk", "fallen/atk");
+		Goto See;
+	Pain:
+		SKEL D 4 { for (int i = 0; i < 8; i++) A_SpawnParticle(0xE8DCB0, 0, 24, 3, 0, frandom(-8, 8), frandom(-8, 8), frandom(10, 40), frandom(-2, 2), frandom(-2, 2), frandom(1, 4), 0, 0, -0.3, 1.0, -0.03); }
+		SKEL D 4 A_Pain;
+		Goto See;
+	Death:
+		SKEL E 6 A_Scream;
+		SKEL E 4 A_NoBlocking;
+		SKEL F 100 CanRaise;
+		SKEL F 0 CanRaise { if (CountInv("DiaRisen") == 0 && random(0, 99) < 70) { GiveInventory("DiaRisen", 1); A_RaiseSelf(); } }
+		SKEL F -1;
+		Stop;
+	Raise:
+		SKEL F 10 A_StartSound("skel/sight", CHAN_VOICE);
+		SKEL E 8;
+		SKEL D 8;
+		Goto See;
+	}
+}
+
+// The secret cow level, one cow at a time. Charges, then swings its halberd.
+class HellBovine : Actor replaces ShotgunGuy
+{
+	Default
+	{
+		Health 90; Radius 22; Height 62; Mass 200; Speed 8; PainChance 120;
+		Monster; +FLOORCLIP; Scale 0.5; MinMissileChance 120;
+		SeeSound "cow/sight"; ActiveSound "cow/sight"; PainSound "cow/sight"; DeathSound "cow/die";
+		Obituary "%o was trampled by a Hell Bovine.";
+		Tag "Hell Bovine";
+	}
+	States
+	{
+	Spawn:
+		BOVN A 10 A_Look;
+		Loop;
+	See:
+		BOVN AABB 4 A_Chase;
+		Loop;
+	Missile:
+		BOVN A 14 A_FaceTarget;
+		BOVN C 3 { A_StartSound("cow/sight", CHAN_VOICE); VelFromAngle(16, angle); }
+		BOVN BABA 3 A_Chase(null, null, CHF_NOPLAYACTIVE | CHF_DONTMOVE);
+		BOVN C 2 A_FaceTarget;
+		Goto See;
+	Melee:
+		BOVN C 10 A_FaceTarget;
+		BOVN C 6 A_CustomMeleeAttack(random(3, 8) * 3, "fallen/atk", "fallen/atk");
+		Goto See;
+	Pain:
+		BOVN D 4;
+		BOVN D 4 A_Pain;
+		Goto See;
+	Death:
+		BOVN E 6 A_Scream;
+		BOVN E 4 A_NoBlocking;
+		BOVN F -1;
+		Stop;
+	}
+}
+
+// Big, fast and hungry.
+class Butcher : Actor replaces Demon
+{
+	Default
+	{
+		Health 450; Radius 28; Height 84; Mass 600; Speed 12; PainChance 40;
+		Monster; +FLOORCLIP; Scale 0.5;
+		SeeSound "butcher/sight"; ActiveSound "butcher/sight"; PainSound "diablo/pain"; DeathSound "butcher/die";
+		MeleeSound "butcher/atk";
+		Obituary "%o was chopped up by the Butcher.";
+		Tag "The Butcher";
+	}
+	States
+	{
+	Spawn:
+		BUTC A 10 A_Look;
+		Loop;
+	See:
+		BUTC AABB 5 A_Chase;
+		Loop;
+	Melee:
+		BUTC C 12 A_FaceTarget;
+		BUTC C 8 A_CustomMeleeAttack(random(4, 9) * 5, "butcher/atk", "butcher/atk");
+		Goto See;
+	Pain:
+		BUTC D 4;
+		BUTC D 4 A_Pain;
+		Goto See;
+	Death:
+		BUTC E 8 A_Scream;
+		BUTC E 6 A_NoBlocking;
+		BUTC F -1;
+		Stop;
+	}
+}
+
+// ---------------------------------------------------------------- the takeover itself
+
+class DiabloHandler : EventHandler
+{
+	bool cowOpened;
+	int bannerAt, banner2At;
+	String bannerText, bannerSub, banner2Text;
+	TextureID dFloor, dWall;
+
+	override void WorldLoaded(WorldEvent e)
+	{
+		// Turn the level into a dungeon: stone floors and ceilings, stone walls (doors and switches stay as they are).
+		dFloor = TexMan.CheckForTexture("DIABFLR", TexMan.Type_Any);
+		dWall = TexMan.CheckForTexture("DIABWALL", TexMan.Type_Any);
+		for (int i = 0; i < level.sectors.Size(); i++)
+		{
+			let s = level.sectors[i];
+			if (s.GetTexture(Sector.floor) != skyflatnum) s.SetTexture(Sector.floor, dFloor);
+			if (s.GetTexture(Sector.ceiling) != skyflatnum) s.SetTexture(Sector.ceiling, dFloor);
+		}
+		for (int i = 0; i < level.lines.Size(); i++)
+		{
+			let l = level.lines[i];
+			if (l.special != 0) continue;
+			for (int sd = 0; sd < 2; sd++)
+			{
+				let side = l.sidedef[sd];
+				if (!side) continue;
+				for (int part = 0; part < 3; part++)
+				{
+					if (part == Side.mid && l.sidedef[1 - sd]) continue; // see-through grates stay
+					TextureID t = side.GetTexture(part);
+					if (t.IsValid() && t != skyflatnum) side.SetTexture(part, dWall);
+				}
+			}
+		}
+		S_StartSound("diablo/bell", CHAN_AUTO, 0, 1.0, ATTN_NONE);
+		bannerAt = level.maptime; bannerText = "DIABLO TAKEOVER"; bannerSub = "The Cathedral awaits. Beware the Butcher.";
+	}
+
+	override void PlayerEntered(PlayerEvent e)
+	{
+		let pl = players[e.PlayerNumber].mo;
+		if (!pl) return;
+		pl.GiveInventory("FireStaff", 1);
+		pl.GiveInventory("Mana", 100);
+		pl.GiveInventory("DiaLevel", 1);
+		pl.A_SelectWeapon("FireStaff");
+	}
+
+	override void WorldTick()
+	{
+		if (level.maptime % 3 != 0) return;
+		for (int i = 0; i < MAXPLAYERS; i++)
+			if (playeringame[i] && players[i].mo && players[i].health > 0) players[i].mo.GiveInventory("Mana", 1);
+	}
+
+	override void WorldThingDied(WorldEvent e)
+	{
+		let m = e.Thing;
+		if (!m || !m.bIsMonster || m.CountInv("DiaLooted")) return;
+		m.GiveInventory("DiaLooted", 1);
+		int hp = m.SpawnHealth();
+
+		// loot
+		int piles = 1 + hp / 200;
+		for (int i = 0; i < piles; i++) Drop(m, "GoldPile");
+		if (random(0, 99) < 28) Drop(m, "HealthGlobe");
+		if (random(0, 99) < 22) Drop(m, "ManaGlobe");
+
+		// experience
+		for (int i = 0; i < MAXPLAYERS; i++)
+		{
+			if (!playeringame[i] || !players[i].mo) continue;
+			let p = players[i].mo;
+			p.GiveInventory("DiaXP", max(10, hp / 2));
+			int lvl = p.CountInv("DiaLevel");
+			if (p.CountInv("DiaXP") >= 90 * lvl) LevelUp(p);
+		}
+	}
+
+	void Drop(Actor m, Class<Actor> what)
+	{
+		let a = Actor.Spawn(what, m.pos + (0, 0, m.height * 0.5));
+		if (!a) return;
+		a.vel = (frandom(-4, 4), frandom(-4, 4), frandom(4, 7));
+	}
+
+	void LevelUp(PlayerPawn p)
+	{
+		p.TakeInventory("DiaXP", p.CountInv("DiaXP"));
+		p.GiveInventory("DiaLevel", 1);
+		int lvl = p.CountInv("DiaLevel");
+		p.GiveBody(200, 200);
+		p.GiveInventory("Mana", 100);
+		p.A_StartSound("diablo/levelup", CHAN_AUTO, 0, 1.0, ATTN_NONE);
+		for (int i = 0; i < 48; i++)
+		{
+			double a = i * 360. / 48;
+			p.A_SpawnParticle(0xFFD040, SPF_FULLBRIGHT, 40, 6, 0, cos(a) * 20, sin(a) * 20, 4, cos(a) * 1.5, sin(a) * 1.5, 2.2, 0, 0, 0, 1.0, -0.025);
+		}
+		bannerAt = level.maptime; bannerText = "LEVEL UP!"; bannerSub = String.Format("You are now level %d", lvl);
+		if (lvl >= 3 && !cowOpened)
+		{
+			cowOpened = true;
+			banner2At = level.maptime; banner2Text = "The Secret Cow Level is open!";
+			for (int i = 0; i < 5; i++)
+			{
+				double a = i * 72.;
+				let c = Actor.Spawn("HellBovine", p.pos + (cos(a) * 480, sin(a) * 480, 0));
+				if (c) { c.target = p; c.angle = a + 180; }
+			}
+		}
+	}
+
+	override void RenderOverlay(RenderEvent e)
+	{
+		let pl = players[consoleplayer].mo;
+		if (!pl) return;
+		TextureID orbRed = TexMan.CheckForTexture("hudred", TexMan.Type_Any);
+		TextureID orbBlue = TexMan.CheckForTexture("hudblue", TexMan.Type_Any);
+		int sw = Screen.GetWidth(), sh = Screen.GetHeight();
+		int sz = int(sh * 0.25);
+		int y0 = sh - sz - 2;
+		DrawOrb(orbRed, 4, y0, sz, clamp(pl.health / 100., 0., 1.));
+		DrawOrb(orbBlue, sw - sz - 4, y0, sz, clamp(pl.CountInv("Mana") / 100., 0., 1.));
+
+		DrawBanner(sw, sh);
+
+		int lvl = pl.CountInv("DiaLevel");
+		int need = 90 * max(lvl, 1);
+		double xpFrac = clamp(pl.CountInv("DiaXP") / double(need), 0., 1.);
+		int bw = int(sw * 0.3), bx = (sw - bw) / 2, by = sh - 14;
+		Screen.Dim(0x000000, 0.7, bx - 2, by - 2, bw + 4, 12);
+		Screen.Dim(0xC8A020, 0.9, bx, by, int(bw * xpFrac), 8);
+		Screen.DrawText(NewSmallFont, Font.CR_GOLD, bx, by - 34, String.Format("Level %d", lvl), DTA_ScaleX, 2.0, DTA_ScaleY, 2.0);
+		Screen.DrawText(NewSmallFont, Font.CR_YELLOW, bx + bw - 190, by - 34, String.Format("Gold: %d", pl.CountInv("GoldCoins")), DTA_ScaleX, 2.0, DTA_ScaleY, 2.0);
+	}
+
+	ui void DrawBanner(int sw, int sh)
+	{
+		int age = level.maptime - bannerAt;
+		if (bannerText != "" && age >= 0 && age < 105)
+		{
+			double a = age > 70 ? (105 - age) / 35. : 1.0;
+			double pop = age < 8 ? 4.6 + (8 - age) * 0.5 : 4.6;
+			Screen.DrawText(BigFont, Font.CR_GOLD, sw / 2 - BigFont.StringWidth(bannerText) * pop / 2, sh * 0.18, bannerText, DTA_ScaleX, pop, DTA_ScaleY, pop, DTA_Alpha, a);
+			Screen.DrawText(BigFont, Font.CR_WHITE, sw / 2 - BigFont.StringWidth(bannerSub) * 2.2 / 2, sh * 0.18 + 100, bannerSub, DTA_ScaleX, 2.2, DTA_ScaleY, 2.2, DTA_Alpha, a);
+		}
+		age = level.maptime - banner2At;
+		if (banner2Text != "" && age >= 0 && age < 140)
+		{
+			double a = age > 105 ? (140 - age) / 35. : 1.0;
+			Screen.DrawText(BigFont, Font.CR_RED, sw / 2 - BigFont.StringWidth(banner2Text) * 3.2 / 2, sh * 0.42, banner2Text, DTA_ScaleX, 3.2, DTA_ScaleY, 3.2, DTA_Alpha, a);
+			Screen.DrawText(BigFont, Font.CR_WHITE, sw / 2 - BigFont.StringWidth("They are not happy.") * 2.2 / 2, sh * 0.42 + 80, "They are not happy.", DTA_ScaleX, 2.2, DTA_ScaleY, 2.2, DTA_Alpha, a);
+		}
+	}
+
+	ui void DrawOrb(TextureID tex, int x, int y, int sz, double frac)
+	{
+		if (!tex.IsValid()) return;
+		Screen.DrawTexture(tex, false, x, y, DTA_DestWidth, sz, DTA_DestHeight, sz, DTA_ColorOverlay, 0xDD000000);
+		if (frac <= 0) return;
+		int ch = int(sz * 0.86 * frac) + 2;
+		Screen.SetClipRect(x, y + int(sz * 0.93) - ch, sz, ch);
+		Screen.DrawTexture(tex, false, x, y, DTA_DestWidth, sz, DTA_DestHeight, sz);
+		Screen.ClearClipRect();
+	}
+}

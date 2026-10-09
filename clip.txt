@@ -1,0 +1,6 @@
+Moments the clip must show, in order:
+[x] 1. Dungeon takeover at start: stone walls and floors, red and blue orbs on the HUD, Fallen Ones charging the player.
+[x] 2. The Sorcerer's firebolt hits a Fallen One: explosion, burning, gold and a health globe drop.
+[ ] 3. A Skeleton falls apart and gets back up (confirmed in the game log, random 70 percent chance, not always on screen); gold counter climbs as loot is picked up.
+[x] 4. The Butcher roars "Ahhh, fresh meat!" and is blown up with a vanilla Doom rocket launcher (host weapon hurts it).
+[x] 5. LEVEL UP banner, then the Secret Cow Level opens and Hell Bovines charge.
