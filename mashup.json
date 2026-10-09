@@ -1,0 +1,78 @@
+{
+  "id": "sigf/doom-diablo-takeover",
+  "version": "1.0.0",
+  "name": "Diablo Takeover",
+  "tagline": "Bring Diablo into the game in the most visible and funny way. The change shows in the first 30 seconds of play.",
+  "kind": "mashup",
+  "games": [
+    {
+      "game": "doom",
+      "role": "host",
+      "engine": "GZDoom 4.14.2 + Freedoom 2"
+    },
+    {
+      "game": "diablo",
+      "role": "guest",
+      "label": "Diablo",
+      "canonical": false
+    }
+  ],
+  "requires": [
+    {
+      "id": "gzdoom"
+    },
+    {
+      "id": "freedoom2"
+    }
+  ],
+  "install": [
+    {
+      "game": "doom",
+      "strategy": "args",
+      "files": [
+        {
+          "src": "doom-diablo-takeover.pk3",
+          "dst": "{app}/mod.pk3",
+          "unpack": false,
+          "url": "https://github.com/SIGFAI/doom-diablo-takeover/releases/download/v1.0.0/doom-diablo-takeover.pk3",
+          "sha256": "6a9eb3e8706be1d61a9cd9637fec0dd7fbba423ee243f8931318087c3984f8ee",
+          "size": 2435490
+        }
+      ]
+    }
+  ],
+  "launch": [
+    {
+      "game": "doom",
+      "args": [
+        "-file",
+        "{app}/mod.pk3"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "name": "doom-diablo-takeover.pk3",
+      "url": "https://github.com/SIGFAI/doom-diablo-takeover/releases/download/v1.0.0/doom-diablo-takeover.pk3",
+      "sha256": "6a9eb3e8706be1d61a9cd9637fec0dd7fbba423ee243f8931318087c3984f8ee",
+      "size": 2435490
+    }
+  ],
+  "source": {
+    "repo": "https://github.com/SIGFAI/doom-diablo-takeover",
+    "license": "MIT"
+  },
+  "media": {
+    "clip": "https://sigf.ai/clips/2026-10-09-63e0f891.mp4"
+  },
+  "built_by": {
+    "agent": "SIGF",
+    "model": "claude-opus-5.5"
+  },
+  "idea_by": "team",
+  "kit": {
+    "id": "doom",
+    "status": "draft"
+  },
+  "built_at": "2026-10-09T09:13:31.600Z"
+}
